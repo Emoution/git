@@ -11,7 +11,6 @@
 #include "dir.h"
 #include "tag.h"
 #include "string-list.h"
-#include "mergesort.h"
 #include "strvec.h"
 #include "commit-reach.h"
 #include "advice.h"
@@ -850,7 +849,7 @@ static int refspec_match(const struct refspec_item *refspec,
 	return !strcmp(refspec->src, name);
 }
 
-static int omit_name_by_refspec(const char *name, struct refspec *rs)
+int omit_name_by_refspec(const char *name, struct refspec *rs)
 {
 	int i;
 
@@ -1080,27 +1079,6 @@ void free_refs(struct ref *ref)
 		free_one_ref(ref);
 		ref = next;
 	}
-}
-
-int ref_compare_name(const void *va, const void *vb)
-{
-	const struct ref *a = va, *b = vb;
-	return strcmp(a->name, b->name);
-}
-
-static void *ref_list_get_next(const void *a)
-{
-	return ((const struct ref *)a)->next;
-}
-
-static void ref_list_set_next(void *a, void *next)
-{
-	((struct ref *)a)->next = next;
-}
-
-void sort_ref_list(struct ref **l, int (*cmp)(const void *, const void *))
-{
-	*l = llist_mergesort(*l, ref_list_get_next, ref_list_set_next, cmp);
 }
 
 int count_refspec_match(const char *pattern,
@@ -2169,6 +2147,9 @@ static int stat_branch_pair(const char *branch_name, const char *base,
 	struct object_id oid;
 	struct commit *ours, *theirs;
 	struct rev_info revs;
+	struct setup_revision_opt opt = {
+		.free_removed_argv_elements = 1,
+	};
 	struct strvec argv = STRVEC_INIT;
 
 	/* Cannot stat if what we used to build on no longer exists */
@@ -2203,7 +2184,7 @@ static int stat_branch_pair(const char *branch_name, const char *base,
 	strvec_push(&argv, "--");
 
 	repo_init_revisions(the_repository, &revs, NULL);
-	setup_revisions(argv.nr, argv.v, &revs, NULL);
+	setup_revisions(argv.nr, argv.v, &revs, &opt);
 	if (prepare_revision_walk(&revs))
 		die(_("revision walk setup failed"));
 
